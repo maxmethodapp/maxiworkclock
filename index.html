@@ -46,7 +46,9 @@
 
   table{width:100%;border-collapse:collapse;font-size:13px}
   th{text-align:left;font-family:var(--mono);font-weight:400;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--slate);padding:6px 0;border-bottom:1px solid var(--rule)}
-  td{padding:9px 0;border-bottom:1px solid var(--rule);font-variant-numeric:tabular-nums}
+  td{padding:9px 6px 9px 0;border-bottom:1px solid var(--rule);font-variant-numeric:tabular-nums}
+  th{padding-right:6px}
+  td.mono.r{padding-right:14px}
   td.mono{font-family:var(--mono);font-size:12px}
   td.r,th.r{text-align:right}
   td input{font-family:var(--body);font-size:13px;border:none;background:transparent;color:var(--ink);width:100%;outline:none;border-bottom:1px dashed transparent}
@@ -97,6 +99,21 @@
   #login .msg{font-family:var(--mono);font-size:12px;color:var(--slate);margin-top:12px;min-height:16px}
   .sync{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--slate)}
   .sync.err{color:var(--coral)}
+
+  /* categories */
+  .cats{display:flex;gap:8px;margin:12px 0 4px}
+  .cat{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;padding:7px 14px;border:1px solid var(--rule);color:var(--slate);background:transparent}
+  .cat.on[data-cat="coaching"]{background:var(--navy);border-color:var(--navy);color:var(--paper)}
+  .cat.on[data-cat="method"]{background:var(--mint);border-color:var(--mint);color:var(--ink)}
+  .split{font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--slate);margin-top:4px;font-variant-numeric:tabular-nums}
+  .split b{font-weight:400;color:var(--ink)}
+  .dot{display:inline-block;width:7px;height:7px;border-radius:50%;vertical-align:middle;margin-right:4px}
+  .dot.coaching{background:var(--navy)} .dot.method{background:var(--mint)}
+  .day .bar i.c{background:var(--navy)} .day .bar i.m{background:var(--mint)}
+  .day.today .bar i.c{background:var(--navy)} .day.today .bar i.m{background:var(--paper)}
+  .tag{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--rule);padding:3px 8px;background:transparent;color:var(--slate);border-radius:0}
+  .tag.coaching{color:var(--navy);border-color:var(--navy)} .tag.method{color:var(--deep);border-color:var(--mint)}
+  .ml{display:block;height:3px;margin-top:6px;display:flex} .ml i{display:block;height:100%} .ml i.c{background:var(--navy)} .ml i.m{background:var(--mint)}
 </style>
 </head>
 <body>
@@ -129,6 +146,10 @@
   <!-- TIMER -->
   <section class="panel">
     <div class="eyebrow">Work block</div>
+    <div class="cats">
+      <button class="cat" data-cat="coaching">Coaching</button>
+      <button class="cat" data-cat="method">METHOD<span style="display:inline-block;width:.35em;height:.35em;border-radius:50%;background:currentColor;margin-left:.1em"></span></button>
+    </div>
     <div class="clock" id="clock">00:00:00</div>
     <div class="sub" id="clockSub">Not running</div>
     <div class="btns">
@@ -137,9 +158,9 @@
       <button id="btnStop" disabled>Stop</button>
     </div>
     <div class="stats">
-      <div class="stat"><div class="eyebrow">Today</div><div class="v" id="sToday">0:00</div></div>
+      <div class="stat"><div class="eyebrow">Today</div><div class="v" id="sToday">0:00</div><div class="split" id="spToday"></div></div>
       <div class="stat"><div class="eyebrow">Blocks</div><div class="v" id="sBlocks">0</div></div>
-      <div class="stat"><div class="eyebrow">This week</div><div class="v" id="sWeek">0:00</div></div>
+      <div class="stat"><div class="eyebrow">This week</div><div class="v" id="sWeek">0:00</div><div class="split" id="spWeek"></div></div>
     </div>
   </section>
 
@@ -151,7 +172,7 @@
     </div>
     <h2 id="lapsTitle">Today</h2>
     <table>
-      <thead><tr><th>#</th><th>Start</th><th>End</th><th class="r">Length</th><th>Note</th><th></th></tr></thead>
+      <thead><tr><th>#</th><th>Type</th><th>Start</th><th>End</th><th class="r">Length</th><th>Note</th><th></th></tr></thead>
       <tbody id="lapRows"></tbody>
     </table>
     <div class="empty" id="lapEmpty">No blocks logged yet.</div>
@@ -166,7 +187,7 @@
     </div>
     <div class="week" id="week"></div>
     <div class="foot">
-      <div class="eyebrow">Week total <span id="wkTotal" style="color:var(--ink)">0:00</span></div>
+      <div class="eyebrow">Week total <span id="wkTotal" style="color:var(--ink)">0:00</span><div class="split" id="spWk"></div></div>
       <div class="target">Target <input type="number" id="target" min="0" step="0.5"> h/wk</div>
     </div>
   </section>
@@ -180,7 +201,7 @@
     </div>
     <div class="month" id="month"></div>
     <div class="foot">
-      <div class="eyebrow">Month total <span id="moTotal" style="color:var(--ink)">0:00</span></div>
+      <div class="eyebrow">Month total <span id="moTotal" style="color:var(--ink)">0:00</span><div class="split" id="spMo"></div></div>
       <button class="small ghost" id="btnExport">Export JSON</button>
       <button class="small ghost" id="btnImport">Import</button>
       <input type="file" id="fileImport" accept="application/json" hidden>
@@ -213,7 +234,8 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 // Re-check the session whenever the tab comes back into view so a stale token gets refreshed instead of bouncing you to login
 document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible' && USER) sb.auth.getSession(); });
 const KEY = 'method_workclock_v1';
-const EMPTY = () => ({active:null,days:{},target:35});
+const EMPTY = () => ({active:null,days:{},target:35,cat:'coaching'});
+const CATS={coaching:'Coaching',method:'METHOD.'};
 let USER = null, saveTimer = null;
 
 const store = {
@@ -282,8 +304,11 @@ const hms = ms => { const s=Math.floor(ms/1000); return `${pad(Math.floor(s/3600
 const tm = ms => { const d=new Date(ms); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 const mondayOf = d => { const x=new Date(d); x.setHours(0,0,0,0); x.setDate(x.getDate()-((x.getDay()+6)%7)); return x; };
 const addDays = (d,n) => { const x=new Date(d); x.setDate(x.getDate()+n); return x; };
-const dayTotal = k => (S.days[k]||[]).reduce((a,l)=>a+(l.end-l.start),0);
-const liveExtra = k => (S.active && k===dkey(new Date(S.active.lapStart))) ? Date.now()-S.active.lapStart : 0;
+const dayTotal = (k,c) => (S.days[k]||[]).reduce((a,l)=>a+((!c||(l.cat||'coaching')===c)?(l.end-l.start):0),0);
+const liveExtra = (k,c) => (S.active && k===dkey(new Date(S.active.lapStart)) && (!c||S.active.cat===c)) ? Date.now()-S.active.lapStart : 0;
+const sumDays = (keys,c) => keys.reduce((a,k)=>a+dayTotal(k,c)+liveExtra(k,c),0);
+const splitHTML = keys => `<span class="dot coaching"></span><b>${hm(sumDays(keys,'coaching'))}</b> &nbsp; <span class="dot method"></span><b>${hm(sumDays(keys,'method'))}</b>`;
+const weekKeys = ws => Array.from({length:7},(_,i)=>dkey(addDays(ws,i)));
 const DOW = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const MON = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
@@ -296,29 +321,34 @@ let monthView = new Date(); monthView.setDate(1);
 function start(){
   if(S.active) return;
   const now=Date.now();
-  S.active={startedAt:now, lapStart:now};
+  S.active={startedAt:now, lapStart:now, cat:S.cat||'coaching'};
   persist(); render();
 }
 function lap(){
   if(!S.active) return;
   const now=Date.now();
-  commitLap(S.active.lapStart, now);
-  S.active.lapStart=now;
+  commitLap(S.active.lapStart, now, S.active.cat);
+  S.active.lapStart=now; S.active.cat=S.cat||'coaching';
   persist(); render();
 }
 function stop(){
   if(!S.active) return;
   const now=Date.now();
-  if(now-S.active.lapStart>=1000) commitLap(S.active.lapStart, now);
+  if(now-S.active.lapStart>=1000) commitLap(S.active.lapStart, now, S.active.cat);
   S.active=null;
   persist(); render();
 }
-function commitLap(start,end){
+function commitLap(start,end,cat){
   // split at midnight so day totals stay honest
   const sd=new Date(start); const mid=new Date(sd); mid.setHours(24,0,0,0);
-  if(end>mid.getTime()){ commitLap(start, mid.getTime()-1); commitLap(mid.getTime(), end); return; }
+  if(end>mid.getTime()){ commitLap(start, mid.getTime()-1, cat); commitLap(mid.getTime(), end, cat); return; }
   const k=dkey(sd);
-  (S.days[k] ||= []).push({start,end,note:''});
+  (S.days[k] ||= []).push({start,end,note:'',cat:cat||'coaching'});
+}
+function setCat(c){
+  S.cat=c;
+  if(S.active && S.active.cat!==c){ lap(); return; }   // switching mid-block = auto-lap
+  persist(); render();
 }
 function deleteLap(k,i){
   S.days[k].splice(i,1); if(!S.days[k].length) delete S.days[k];
@@ -335,20 +365,22 @@ function render(){
   if(S.active){
     clock.textContent=hms(Date.now()-S.active.lapStart);
     clock.classList.add('running');
-    sub.textContent=`Running · block started ${tm(S.active.lapStart)} · session since ${tm(S.active.startedAt)}`;
+    sub.textContent=`${CATS[S.active.cat]||'Coaching'} · block started ${tm(S.active.lapStart)} · session since ${tm(S.active.startedAt)}`;
   } else {
     clock.textContent='00:00:00'; clock.classList.remove('running'); sub.textContent='Not running';
   }
+  document.querySelectorAll('.cat').forEach(b=>b.classList.toggle('on', b.dataset.cat===(S.cat||'coaching')));
   document.getElementById('btnStart').disabled=!!S.active;
   document.getElementById('btnLap').disabled=!S.active;
   document.getElementById('btnStop').disabled=!S.active;
 
   // stats
   document.getElementById('sToday').textContent=hm(dayTotal(today)+liveExtra(today));
+  document.getElementById('spToday').innerHTML=splitHTML([today]);
   document.getElementById('sBlocks').textContent=(S.days[today]||[]).length + (S.active?'+':'');
-  const ws=mondayOf(new Date()); let wt=0;
-  for(let i=0;i<7;i++){ const k=dkey(addDays(ws,i)); wt+=dayTotal(k)+liveExtra(k); }
-  document.getElementById('sWeek').textContent=hm(wt);
+  const wk=weekKeys(mondayOf(new Date()));
+  document.getElementById('sWeek').textContent=hm(sumDays(wk));
+  document.getElementById('spWeek').innerHTML=splitHTML(wk);
 
   if(document.activeElement!==tgt) tgt.value = S.target ?? 35;
   renderLaps(); renderWeek(); renderMonth();
@@ -364,8 +396,10 @@ function renderLaps(){
   document.getElementById('lapEmpty').style.display = laps.length?'none':'';
   laps.forEach((l,i)=>{
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td class="mono">${i+1}</td><td class="mono">${tm(l.start)}</td><td class="mono">${tm(l.end)}</td><td class="mono r">${hm(l.end-l.start)}</td><td><input placeholder="—" value="${(l.note||'').replace(/"/g,'&quot;')}"></td><td><button class="del" title="Delete">×</button></td>`;
+    const c=l.cat||'coaching';
+    tr.innerHTML=`<td class="mono">${i+1}</td><td><button class="tag ${c}" title="Click to switch">${CATS[c]}</button></td><td class="mono">${tm(l.start)}</td><td class="mono">${tm(l.end)}</td><td class="mono r">${hm(l.end-l.start)}</td><td><input placeholder="—" value="${(l.note||'').replace(/"/g,'&quot;')}"></td><td><button class="del" title="Delete">×</button></td>`;
     tr.querySelector('input').addEventListener('change',e=>{ l.note=e.target.value; persist(); });
+    tr.querySelector('.tag').addEventListener('click',()=>{ l.cat = c==='coaching'?'method':'coaching'; persist(); render(); });
     tr.querySelector('.del').addEventListener('click',()=>{ if(confirm('Delete this block?')) deleteLap(viewDay,i); });
     rows.appendChild(tr);
   });
@@ -375,19 +409,21 @@ function renderWeek(){
   const el=document.getElementById('week'); el.innerHTML='';
   const today=dkey(new Date()); let total=0, max=1;
   const vals=[];
-  for(let i=0;i<7;i++){ const k=dkey(addDays(weekStart,i)); const v=dayTotal(k)+liveExtra(k); vals.push([k,v]); total+=v; max=Math.max(max,v); }
+  for(let i=0;i<7;i++){ const k=dkey(addDays(weekStart,i)); const v=dayTotal(k)+liveExtra(k); vals.push([k,v,dayTotal(k,'coaching')+liveExtra(k,'coaching')]); total+=v; max=Math.max(max,v); }
   const targetMs=(S.target||0)*3600000/5; // per working day for bar scale
   const scale=Math.max(max, targetMs||0);
-  vals.forEach(([k,v],i)=>{
+  vals.forEach(([k,v,vc],i)=>{
     const d=document.createElement('div');
     d.className='day'+(k===today?' today':'')+(k===viewDay?' sel':'');
-    d.innerHTML=`<div class="d">${DOW[i]} ${fromKey(k).getDate()}</div><div class="h">${hm(v)}</div><div class="bar"><i style="width:${Math.min(100,v/scale*100)}%"></i></div>`;
+    const wc=Math.min(100,vc/scale*100), wm=Math.min(100-wc,(v-vc)/scale*100);
+    d.innerHTML=`<div class="d">${DOW[i]} ${fromKey(k).getDate()}</div><div class="h">${hm(v)}</div><div class="bar"><i class="c" style="width:${wc}%"></i><i class="m" style="left:${wc}%;width:${wm}%"></i></div>`;
     d.addEventListener('click',()=>{ viewDay=k; render(); });
     el.appendChild(d);
   });
   const we=addDays(weekStart,6);
   document.getElementById('wkLbl').textContent=`${weekStart.getDate()} ${MON[weekStart.getMonth()].slice(0,3)} – ${we.getDate()} ${MON[we.getMonth()].slice(0,3)} ${we.getFullYear()}`;
   const t=document.getElementById('wkTotal'); t.textContent=hm(total);
+  document.getElementById('spWk').innerHTML=splitHTML(weekKeys(weekStart));
   t.style.color = (S.target && total>=S.target*3600000) ? 'var(--deep)' : 'var(--ink)';
 }
 
@@ -402,15 +438,18 @@ function renderMonth(){
     const k=dkey(new Date(y,m,d)); const v=dayTotal(k)+liveExtra(k); total+=v;
     const c=document.createElement('div');
     c.className='cell'+(k===today?' t':'')+(k===viewDay?' sel':'');
-    c.innerHTML=`<span class="n">${d}</span>${v?`<span class="hh">${hm(v)}</span>`:''}`;
+    const vc=dayTotal(k,'coaching')+liveExtra(k,'coaching');
+    c.innerHTML=`<span class="n">${d}</span>${v?`<span class="hh">${hm(v)}</span><span class="ml"><i class="c" style="width:${vc/v*100}%"></i><i class="m" style="width:${(v-vc)/v*100}%"></i></span>`:''}`;
     c.addEventListener('click',()=>{ viewDay=k; weekStart=mondayOf(fromKey(k)); render(); });
     el.appendChild(c);
   }
   document.getElementById('moLbl').textContent=`${MON[m]} ${y}`;
   document.getElementById('moTotal').textContent=hm(total);
+  document.getElementById('spMo').innerHTML=splitHTML(Array.from({length:dim},(_,i)=>dkey(new Date(y,m,i+1))));
 }
 
 /* ---------- wiring ---------- */
+document.querySelectorAll('.cat').forEach(b=>b.onclick=()=>setCat(b.dataset.cat));
 document.getElementById('btnStart').onclick=start;
 document.getElementById('btnLap').onclick=lap;
 document.getElementById('btnStop').onclick=stop;
@@ -436,6 +475,8 @@ document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT') return;
   if(e.code==='Space'){ e.preventDefault(); S.active?lap():start(); }
   if(e.key==='Escape') stop();
+  if(e.key==='1') setCat('coaching');
+  if(e.key==='2') setCat('method');
 });
 
 setInterval(()=>{ if(USER && S.active){ render(); } },1000);
