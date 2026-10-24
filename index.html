@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>METHOD. Work Clock</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F5F0E8; --ink:#15191A; --mint:#49BBA0; --deep:#2E8A75; --rule:#D9D2C0;
+    --amber:#D9A441; --coral:#D9705A; --slate:#6B7A80; --navy:#1F2E3C;
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+    --body:'DM Sans',system-ui,sans-serif;
+    --display:'Helvetica Neue',Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased}
+  body{min-height:100vh;padding:20px 16px 48px;max-width:1040px;margin:0 auto}
+
+  .wordmark{font-family:var(--display);font-weight:700;font-size:22px;letter-spacing:-0.01em;display:inline-flex;align-items:baseline}
+  .wordmark::after{content:"";display:inline-block;width:.12em;height:.12em;border-radius:50%;background:currentColor;margin-left:.06em;transform:translateY(-.02em)}
+  .eyebrow{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--slate)}
+  header{display:flex;justify-content:space-between;align-items:baseline;padding-bottom:14px;border-bottom:1px solid var(--rule);margin-bottom:20px;gap:12px;flex-wrap:wrap}
+  header .date{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+
+  .grid{display:grid;grid-template-columns:1fr;gap:16px}
+  @media(min-width:860px){.grid{grid-template-columns:1.2fr 1fr}}
+  .panel{border:1px solid var(--rule);background:var(--paper);padding:18px}
+  .panel h2{font-family:var(--display);font-weight:700;font-size:15px;margin:6px 0 14px}
+
+  .clock{font-family:var(--mono);font-size:clamp(56px,14vw,96px);font-weight:500;letter-spacing:-.02em;line-height:1;margin:10px 0 6px;font-variant-numeric:tabular-nums}
+  .clock.running{color:var(--deep)}
+  .sub{font-family:var(--mono);font-size:12px;letter-spacing:.06em;color:var(--slate);margin-bottom:18px}
+
+  .btns{display:flex;gap:10px;flex-wrap:wrap}
+  button{font-family:var(--body);font-weight:500;font-size:14px;border-radius:999px;padding:12px 22px;border:1px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer;transition:background .12s,color .12s}
+  button.primary{background:var(--ink);color:var(--paper)}
+  button.mint{background:var(--mint);border-color:var(--mint);color:var(--ink)}
+  button:disabled{opacity:.35;cursor:not-allowed}
+  button.small{font-size:12px;padding:8px 14px}
+  button.ghost{border-color:var(--rule);color:var(--slate)}
+
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--rule);border-left:1px solid var(--rule);margin-top:18px}
+  .stat{border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:12px}
+  .stat .v{font-family:var(--mono);font-size:22px;margin-top:4px;font-variant-numeric:tabular-nums}
+
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;font-family:var(--mono);font-weight:400;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--slate);padding:6px 0;border-bottom:1px solid var(--rule)}
+  td{padding:9px 0;border-bottom:1px solid var(--rule);font-variant-numeric:tabular-nums}
+  td.mono{font-family:var(--mono);font-size:12px}
+  td.r,th.r{text-align:right}
+  td input{font-family:var(--body);font-size:13px;border:none;background:transparent;color:var(--ink);width:100%;outline:none;border-bottom:1px dashed transparent}
+  td input:focus{border-bottom-color:var(--mint)}
+  .del{border:none;background:none;color:var(--slate);padding:0 4px;font-size:16px;line-height:1;border-radius:0}
+  .del:hover{color:var(--coral)}
+  .empty{color:var(--slate);font-size:13px;padding:14px 0}
+
+  .week{display:grid;grid-template-columns:repeat(7,1fr);gap:0;border-left:1px solid var(--rule);border-top:1px solid var(--rule)}
+  .day{border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:10px 6px;text-align:center;cursor:pointer}
+  .day:hover{background:#EFE8DC}
+  .day.today{background:var(--mint);color:var(--ink)}
+  .day.today .d{color:var(--ink)}
+  .day.sel{outline:2px solid var(--ink);outline-offset:-2px}
+  .day .d{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--slate)}
+  .day .h{font-family:var(--mono);font-size:16px;margin-top:6px;font-variant-numeric:tabular-nums}
+  .day .bar{height:4px;background:var(--rule);margin-top:8px;position:relative}
+  .day .bar i{position:absolute;left:0;top:0;bottom:0;background:var(--deep)}
+  .day.today .bar{background:rgba(21,25,26,.18)}.day.today .bar i{background:var(--ink)}
+
+  .weeknav{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .weeknav .lbl{font-family:var(--mono);font-size:12px;letter-spacing:.06em}
+
+  .month{display:grid;grid-template-columns:repeat(7,1fr);border-left:1px solid var(--rule);border-top:1px solid var(--rule)}
+  .month .cell{border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);min-height:54px;padding:6px;font-family:var(--mono);font-size:11px;cursor:pointer}
+  .month .cell:hover{background:#EFE8DC}
+  .month .cell.dim{color:var(--rule);cursor:default}
+  .month .cell.dim:hover{background:transparent}
+  .month .cell.sel{outline:2px solid var(--ink);outline-offset:-2px}
+  .month .cell.t{background:var(--mint)}
+  .month .cell .n{display:block;color:var(--slate)}
+  .month .cell.t .n{color:var(--ink)}
+  .month .cell .hh{display:block;margin-top:8px;font-size:13px}
+  .month .hd{border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:6px;font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--slate);text-align:center}
+
+  .row{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+  .foot{margin-top:20px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .foot .eyebrow{margin-right:auto}
+  .target{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;color:var(--slate)}
+  .target input{font-family:var(--mono);font-size:12px;width:52px;border:1px solid var(--rule);background:transparent;padding:4px 6px;color:var(--ink)}
+
+  /* login */
+  #app{display:none}
+  #login{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:70vh;text-align:center}
+  #login .box{border:1px solid var(--rule);padding:28px;width:100%;max-width:360px;margin-top:24px;text-align:left}
+  #login input{font-family:var(--body);font-size:15px;width:100%;border:1px solid var(--rule);background:transparent;padding:12px;color:var(--ink);margin:14px 0;outline:none}
+  #login input:focus{border-color:var(--mint)}
+  #login .msg{font-family:var(--mono);font-size:12px;color:var(--slate);margin-top:12px;min-height:16px}
+  .sync{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--slate)}
+  .sync.err{color:var(--coral)}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <span class="wordmark" style="font-size:32px">METHOD</span>
+  <div class="box">
+    <div class="eyebrow">Work clock · sign in</div>
+    <input type="email" id="email" placeholder="you@email.com" autocomplete="email">
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:14px;cursor:pointer">
+      <input type="checkbox" id="keep" checked style="width:auto;margin:0;accent-color:var(--mint)"> Keep me signed in
+    </label>
+    <button class="primary" id="btnMagic" style="width:100%">Send magic link</button>
+    <div class="msg" id="loginMsg"></div>
+  </div>
+</div>
+
+<div id="app">
+<header>
+  <span class="wordmark">METHOD</span>
+  <span class="row" style="gap:16px">
+    <span class="sync" id="sync">synced</span>
+    <span class="date" id="todayLbl"></span>
+    <button class="small ghost" id="btnSignOut">Sign out</button>
+  </span>
+</header>
+
+<div class="grid">
+
+  <!-- TIMER -->
+  <section class="panel">
+    <div class="eyebrow">Work block</div>
+    <div class="clock" id="clock">00:00:00</div>
+    <div class="sub" id="clockSub">Not running</div>
+    <div class="btns">
+      <button class="primary" id="btnStart">Start</button>
+      <button class="mint" id="btnLap" disabled>Lap</button>
+      <button id="btnStop" disabled>Stop</button>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="eyebrow">Today</div><div class="v" id="sToday">0:00</div></div>
+      <div class="stat"><div class="eyebrow">Blocks</div><div class="v" id="sBlocks">0</div></div>
+      <div class="stat"><div class="eyebrow">This week</div><div class="v" id="sWeek">0:00</div></div>
+    </div>
+  </section>
+
+  <!-- LAPS -->
+  <section class="panel">
+    <div class="row">
+      <div class="eyebrow" id="lapsEyebrow">Blocks · today</div>
+      <button class="small ghost" id="btnBackToday" style="display:none">Back to today</button>
+    </div>
+    <h2 id="lapsTitle">Today</h2>
+    <table>
+      <thead><tr><th>#</th><th>Start</th><th>End</th><th class="r">Length</th><th>Note</th><th></th></tr></thead>
+      <tbody id="lapRows"></tbody>
+    </table>
+    <div class="empty" id="lapEmpty">No blocks logged yet.</div>
+  </section>
+
+  <!-- WEEK -->
+  <section class="panel">
+    <div class="weeknav">
+      <button class="small ghost" id="wkPrev">←</button>
+      <div class="lbl" id="wkLbl"></div>
+      <button class="small ghost" id="wkNext">→</button>
+    </div>
+    <div class="week" id="week"></div>
+    <div class="foot">
+      <div class="eyebrow">Week total <span id="wkTotal" style="color:var(--ink)">0:00</span></div>
+      <div class="target">Target <input type="number" id="target" min="0" step="0.5"> h/wk</div>
+    </div>
+  </section>
+
+  <!-- MONTH -->
+  <section class="panel">
+    <div class="weeknav">
+      <button class="small ghost" id="moPrev">←</button>
+      <div class="lbl" id="moLbl"></div>
+      <button class="small ghost" id="moNext">→</button>
+    </div>
+    <div class="month" id="month"></div>
+    <div class="foot">
+      <div class="eyebrow">Month total <span id="moTotal" style="color:var(--ink)">0:00</span></div>
+      <button class="small ghost" id="btnExport">Export JSON</button>
+      <button class="small ghost" id="btnImport">Import</button>
+      <input type="file" id="fileImport" accept="application/json" hidden>
+    </div>
+  </section>
+
+</div>
+</div><!-- /app -->
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* =========================================================
+   SUPABASE CONFIG — paste yours from Settings → API
+   ========================================================= */
+const SUPABASE_URL = 'https://utqdrcrrqnzsadlrbzao.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV0cWRyY3JycW56c2FkbHJiemFvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MDEyMTEsImV4cCI6MjEwODA3NzIxMX0.rZmT2FJdr2zN1IZ3aqdrzN-nwIUCGP_OUUvF5DjOfyI';
+
+/* =========================================================
+   DATA LAYER
+   localStorage = instant cache. Supabase = source of truth,
+   one row per user in table `workclock` (user_id, data jsonb).
+   Shape: { active: {startedAt:ms, lapStart:ms} | null,
+            days: { 'YYYY-MM-DD': [ {start:ms,end:ms,note:''} ] },
+            target: hours }
+   ========================================================= */
+const KEEP = localStorage.getItem('method_keep') !== 'no';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: KEEP, autoRefreshToken: true, detectSessionInUrl: true, storage: KEEP ? localStorage : sessionStorage }
+});
+// Re-check the session whenever the tab comes back into view so a stale token gets refreshed instead of bouncing you to login
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible' && USER) sb.auth.getSession(); });
+const KEY = 'method_workclock_v1';
+const EMPTY = () => ({active:null,days:{},target:35});
+let USER = null, saveTimer = null;
+
+const store = {
+  local(){ try{ return JSON.parse(localStorage.getItem(KEY)) || EMPTY(); }catch(e){ return EMPTY(); } },
+  async load(){
+    const { data, error } = await sb.from('workclock').select('data').eq('user_id', USER.id).maybeSingle();
+    if(error){ setSync('offline · using local', true); return this.local(); }
+    if(!data){ // first login: push whatever's local up
+      const l=this.local(); await this.push(l); return l;
+    }
+    localStorage.setItem(KEY, JSON.stringify(data.data));
+    return data.data;
+  },
+  save(d){
+    localStorage.setItem(KEY, JSON.stringify(d));
+    setSync('saving…');
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(()=>this.push(d), 800);
+  },
+  async push(d){
+    const { error } = await sb.from('workclock').upsert({ user_id: USER.id, data: d, updated_at: new Date().toISOString() });
+    setSync(error ? 'sync failed' : 'synced', !!error);
+    if(error) console.error(error);
+  }
+};
+function setSync(t,err){ const e=document.getElementById('sync'); e.textContent=t; e.classList.toggle('err',!!err); }
+
+let S = EMPTY();
+const persist = () => store.save(S);
+
+/* ---------- auth ---------- */
+document.getElementById('btnMagic').onclick = async ()=>{
+  const email=document.getElementById('email').value.trim();
+  const msg=document.getElementById('loginMsg');
+  if(!email){ msg.textContent='Enter your email.'; return; }
+  localStorage.setItem('method_keep', document.getElementById('keep').checked ? 'yes' : 'no');
+  msg.textContent='Sending…';
+  const { error } = await sb.auth.signInWithOtp({ email, options:{ emailRedirectTo: location.origin + location.pathname } });
+  msg.textContent = error ? error.message : 'Check your inbox and click the link.';
+};
+document.getElementById('btnSignOut').onclick = async ()=>{ localStorage.removeItem('method_keep'); await sb.auth.signOut(); location.reload(); };
+
+sb.auth.onAuthStateChange(async (_evt, session)=>{
+  if(session?.user){
+    if(USER) return; // already booted
+    USER = session.user;
+    S = await store.load();
+    document.getElementById('login').style.display='none';
+    document.getElementById('app').style.display='block';
+    render();
+  } else {
+    USER=null;
+    document.getElementById('login').style.display='flex';
+    document.getElementById('app').style.display='none';
+  }
+});
+window.addEventListener('beforeunload',()=>{ if(saveTimer){ clearTimeout(saveTimer); store.push(S); } });
+
+/* ---------- helpers ---------- */
+const pad = n => String(n).padStart(2,'0');
+const dkey = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const fromKey = k => { const [y,m,d]=k.split('-').map(Number); return new Date(y,m-1,d); };
+const hm = ms => { const m=Math.floor(ms/60000); return `${Math.floor(m/60)}:${pad(m%60)}`; };
+const hms = ms => { const s=Math.floor(ms/1000); return `${pad(Math.floor(s/3600))}:${pad(Math.floor(s%3600/60))}:${pad(s%60)}`; };
+const tm = ms => { const d=new Date(ms); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+const mondayOf = d => { const x=new Date(d); x.setHours(0,0,0,0); x.setDate(x.getDate()-((x.getDay()+6)%7)); return x; };
+const addDays = (d,n) => { const x=new Date(d); x.setDate(x.getDate()+n); return x; };
+const dayTotal = k => (S.days[k]||[]).reduce((a,l)=>a+(l.end-l.start),0);
+const liveExtra = k => (S.active && k===dkey(new Date(S.active.lapStart))) ? Date.now()-S.active.lapStart : 0;
+const DOW = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const MON = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+/* ---------- state for views ---------- */
+let viewDay = dkey(new Date());
+let weekStart = mondayOf(new Date());
+let monthView = new Date(); monthView.setDate(1);
+
+/* ---------- timer actions ---------- */
+function start(){
+  if(S.active) return;
+  const now=Date.now();
+  S.active={startedAt:now, lapStart:now};
+  persist(); render();
+}
+function lap(){
+  if(!S.active) return;
+  const now=Date.now();
+  commitLap(S.active.lapStart, now);
+  S.active.lapStart=now;
+  persist(); render();
+}
+function stop(){
+  if(!S.active) return;
+  const now=Date.now();
+  if(now-S.active.lapStart>=1000) commitLap(S.active.lapStart, now);
+  S.active=null;
+  persist(); render();
+}
+function commitLap(start,end){
+  // split at midnight so day totals stay honest
+  const sd=new Date(start); const mid=new Date(sd); mid.setHours(24,0,0,0);
+  if(end>mid.getTime()){ commitLap(start, mid.getTime()-1); commitLap(mid.getTime(), end); return; }
+  const k=dkey(sd);
+  (S.days[k] ||= []).push({start,end,note:''});
+}
+function deleteLap(k,i){
+  S.days[k].splice(i,1); if(!S.days[k].length) delete S.days[k];
+  persist(); render();
+}
+
+/* ---------- render ---------- */
+function render(){
+  const today=dkey(new Date());
+  document.getElementById('todayLbl').textContent = new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+
+  // clock
+  const clock=document.getElementById('clock'), sub=document.getElementById('clockSub');
+  if(S.active){
+    clock.textContent=hms(Date.now()-S.active.lapStart);
+    clock.classList.add('running');
+    sub.textContent=`Running · block started ${tm(S.active.lapStart)} · session since ${tm(S.active.startedAt)}`;
+  } else {
+    clock.textContent='00:00:00'; clock.classList.remove('running'); sub.textContent='Not running';
+  }
+  document.getElementById('btnStart').disabled=!!S.active;
+  document.getElementById('btnLap').disabled=!S.active;
+  document.getElementById('btnStop').disabled=!S.active;
+
+  // stats
+  document.getElementById('sToday').textContent=hm(dayTotal(today)+liveExtra(today));
+  document.getElementById('sBlocks').textContent=(S.days[today]||[]).length + (S.active?'+':'');
+  const ws=mondayOf(new Date()); let wt=0;
+  for(let i=0;i<7;i++){ const k=dkey(addDays(ws,i)); wt+=dayTotal(k)+liveExtra(k); }
+  document.getElementById('sWeek').textContent=hm(wt);
+
+  renderLaps(); renderWeek(); renderMonth();
+}
+
+function renderLaps(){
+  const rows=document.getElementById('lapRows'); rows.innerHTML='';
+  const laps=S.days[viewDay]||[];
+  const isToday=viewDay===dkey(new Date());
+  document.getElementById('lapsTitle').textContent = isToday ? 'Today' : fromKey(viewDay).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('lapsEyebrow').textContent = `Blocks · ${hm(dayTotal(viewDay))}`;
+  document.getElementById('btnBackToday').style.display = isToday?'none':'';
+  document.getElementById('lapEmpty').style.display = laps.length?'none':'';
+  laps.forEach((l,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="mono">${i+1}</td><td class="mono">${tm(l.start)}</td><td class="mono">${tm(l.end)}</td><td class="mono r">${hm(l.end-l.start)}</td><td><input placeholder="—" value="${(l.note||'').replace(/"/g,'&quot;')}"></td><td><button class="del" title="Delete">×</button></td>`;
+    tr.querySelector('input').addEventListener('change',e=>{ l.note=e.target.value; persist(); });
+    tr.querySelector('.del').addEventListener('click',()=>{ if(confirm('Delete this block?')) deleteLap(viewDay,i); });
+    rows.appendChild(tr);
+  });
+}
+
+function renderWeek(){
+  const el=document.getElementById('week'); el.innerHTML='';
+  const today=dkey(new Date()); let total=0, max=1;
+  const vals=[];
+  for(let i=0;i<7;i++){ const k=dkey(addDays(weekStart,i)); const v=dayTotal(k)+liveExtra(k); vals.push([k,v]); total+=v; max=Math.max(max,v); }
+  const targetMs=(S.target||0)*3600000/5; // per working day for bar scale
+  const scale=Math.max(max, targetMs||0);
+  vals.forEach(([k,v],i)=>{
+    const d=document.createElement('div');
+    d.className='day'+(k===today?' today':'')+(k===viewDay?' sel':'');
+    d.innerHTML=`<div class="d">${DOW[i]} ${fromKey(k).getDate()}</div><div class="h">${hm(v)}</div><div class="bar"><i style="width:${Math.min(100,v/scale*100)}%"></i></div>`;
+    d.addEventListener('click',()=>{ viewDay=k; render(); });
+    el.appendChild(d);
+  });
+  const we=addDays(weekStart,6);
+  document.getElementById('wkLbl').textContent=`${weekStart.getDate()} ${MON[weekStart.getMonth()].slice(0,3)} – ${we.getDate()} ${MON[we.getMonth()].slice(0,3)} ${we.getFullYear()}`;
+  const t=document.getElementById('wkTotal'); t.textContent=hm(total);
+  t.style.color = (S.target && total>=S.target*3600000) ? 'var(--deep)' : 'var(--ink)';
+}
+
+function renderMonth(){
+  const el=document.getElementById('month'); el.innerHTML='';
+  DOW.forEach(n=>{ const h=document.createElement('div'); h.className='hd'; h.textContent=n; el.appendChild(h); });
+  const y=monthView.getFullYear(), m=monthView.getMonth();
+  const first=new Date(y,m,1), lead=(first.getDay()+6)%7, dim=new Date(y,m+1,0).getDate();
+  const today=dkey(new Date()); let total=0;
+  for(let i=0;i<lead;i++){ const c=document.createElement('div'); c.className='cell dim'; el.appendChild(c); }
+  for(let d=1; d<=dim; d++){
+    const k=dkey(new Date(y,m,d)); const v=dayTotal(k)+liveExtra(k); total+=v;
+    const c=document.createElement('div');
+    c.className='cell'+(k===today?' t':'')+(k===viewDay?' sel':'');
+    c.innerHTML=`<span class="n">${d}</span>${v?`<span class="hh">${hm(v)}</span>`:''}`;
+    c.addEventListener('click',()=>{ viewDay=k; weekStart=mondayOf(fromKey(k)); render(); });
+    el.appendChild(c);
+  }
+  document.getElementById('moLbl').textContent=`${MON[m]} ${y}`;
+  document.getElementById('moTotal').textContent=hm(total);
+}
+
+/* ---------- wiring ---------- */
+document.getElementById('btnStart').onclick=start;
+document.getElementById('btnLap').onclick=lap;
+document.getElementById('btnStop').onclick=stop;
+document.getElementById('btnBackToday').onclick=()=>{ viewDay=dkey(new Date()); weekStart=mondayOf(new Date()); render(); };
+document.getElementById('wkPrev').onclick=()=>{ weekStart=addDays(weekStart,-7); render(); };
+document.getElementById('wkNext').onclick=()=>{ weekStart=addDays(weekStart,7); render(); };
+document.getElementById('moPrev').onclick=()=>{ monthView=new Date(monthView.getFullYear(),monthView.getMonth()-1,1); render(); };
+document.getElementById('moNext').onclick=()=>{ monthView=new Date(monthView.getFullYear(),monthView.getMonth()+1,1); render(); };
+const tgt=document.getElementById('target'); tgt.value=S.target||35;
+tgt.addEventListener('change',()=>{ S.target=parseFloat(tgt.value)||0; persist(); render(); });
+
+document.getElementById('btnExport').onclick=()=>{
+  const b=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=`method-workclock-${dkey(new Date())}.json`; a.click();
+};
+document.getElementById('btnImport').onclick=()=>document.getElementById('fileImport').click();
+document.getElementById('fileImport').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f) return;
+  f.text().then(t=>{ try{ const d=JSON.parse(t); if(d.days){ S=d; persist(); render(); } else alert('Not a work clock file.'); }catch{ alert('Could not read file.'); } });
+});
+
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT') return;
+  if(e.code==='Space'){ e.preventDefault(); S.active?lap():start(); }
+  if(e.key==='Escape') stop();
+});
+
+setInterval(()=>{ if(USER && S.active){ render(); } },1000);
+</script>
+</body>
+</html>
