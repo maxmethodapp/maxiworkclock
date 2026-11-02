@@ -113,6 +113,39 @@
   .day.today .bar i.c{background:var(--navy)} .day.today .bar i.m{background:var(--paper)}
   .tag{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--rule);padding:3px 8px;background:transparent;color:var(--slate);border-radius:0}
   .tag.coaching{color:var(--navy);border-color:var(--navy)} .tag.method{color:var(--deep);border-color:var(--mint)}
+  .day .plan{font-family:var(--mono);font-size:10px;color:var(--slate);margin-top:4px;letter-spacing:.04em}
+  .day.today .plan{color:var(--ink)}
+  .day .bar .tgt{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--amber)}
+  /* planner */
+  .overlay{position:fixed;inset:0;background:rgba(21,25,26,.45);display:none;align-items:flex-start;justify-content:center;padding:24px 12px;overflow:auto;z-index:50}
+  .overlay.open{display:flex}
+  .planner{background:var(--paper);border:1px solid var(--rule);width:100%;max-width:980px;padding:20px}
+  .planner .head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+  .planner h2{font-family:var(--display);font-weight:700;font-size:16px}
+  .pdays{display:grid;grid-template-columns:1fr;gap:0;border-top:1px solid var(--rule)}
+  .pday{display:grid;grid-template-columns:120px 170px 1fr;gap:14px;padding:12px 0;border-bottom:1px solid var(--rule);align-items:start}
+  @media(max-width:760px){.pday{grid-template-columns:1fr}}
+  .pday .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+  .pday .lbl small{display:block;letter-spacing:.04em;color:var(--slate);margin-top:4px;text-transform:none}
+  .pday.today .lbl{color:var(--deep)}
+  .hrs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .hrs label{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate);display:block}
+  .hrs input{font-family:var(--mono);font-size:14px;width:100%;border:1px solid var(--rule);background:transparent;padding:6px 8px;color:var(--ink);margin-top:4px}
+  .hrs input:focus{outline:none;border-color:var(--mint)}
+  .tasks{display:flex;flex-direction:column;gap:6px}
+  .task{display:flex;align-items:center;gap:8px}
+  .task input[type=checkbox]{accent-color:var(--mint);width:15px;height:15px;margin:0}
+  .task input[type=text]{flex:1;font-family:var(--body);font-size:13px;border:none;border-bottom:1px dashed transparent;background:transparent;color:var(--ink);outline:none;padding:3px 0}
+  .task input[type=text]:focus{border-bottom-color:var(--mint)}
+  .task.done input[type=text]{text-decoration:line-through;color:var(--slate)}
+  .task .tag{cursor:pointer}
+  .addtask{display:flex;gap:8px;align-items:center}
+  .addtask input{flex:1;font-family:var(--body);font-size:13px;border:1px solid var(--rule);background:transparent;padding:6px 8px;color:var(--ink);outline:none}
+  .addtask input:focus{border-color:var(--mint)}
+  .psum{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--rule);border-bottom:none;margin-top:14px}
+  .psum>div{padding:10px 12px;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+  .psum>div:last-child{border-right:none}
+  .psum .v{font-family:var(--mono);font-size:18px;margin-top:3px;font-variant-numeric:tabular-nums}
   .ml{display:block;height:3px;margin-top:6px;display:flex} .ml i{display:block;height:100%} .ml i.c{background:var(--navy)} .ml i.m{background:var(--mint)}
 </style>
 </head>
@@ -189,6 +222,7 @@
     <div class="foot">
       <div class="eyebrow">Week total <span id="wkTotal" style="color:var(--ink)">0:00</span><div class="split" id="spWk"></div></div>
       <div class="target">Target <input type="number" id="target" min="0" step="0.5"> h/wk</div>
+      <button class="small primary" id="btnPlan">Plan week</button>
     </div>
   </section>
 
@@ -210,6 +244,26 @@
 
 </div>
 </div><!-- /app -->
+
+<div class="overlay" id="overlay">
+  <div class="planner">
+    <div class="head">
+      <div><div class="eyebrow">Week plan</div><h2 id="plTitle"></h2></div>
+      <div class="row" style="gap:8px">
+        <button class="small ghost" id="plPrev">←</button>
+        <button class="small ghost" id="plNext">→</button>
+        <button class="small ghost" id="plCopy" title="Copy last week's planned hours">Copy last week</button>
+        <button class="small" id="plClose">Done</button>
+      </div>
+    </div>
+    <div class="pdays" id="pdays"></div>
+    <div class="psum">
+      <div><div class="eyebrow">Planned</div><div class="v" id="plPlanned">0:00</div><div class="split" id="plPlannedSplit"></div></div>
+      <div><div class="eyebrow">Logged so far</div><div class="v" id="plActual">0:00</div><div class="split" id="plActualSplit"></div></div>
+      <div><div class="eyebrow">Tasks</div><div class="v" id="plTasks">0 / 0</div></div>
+    </div>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -234,7 +288,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 // Re-check the session whenever the tab comes back into view so a stale token gets refreshed instead of bouncing you to login
 document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible' && USER) sb.auth.getSession(); });
 const KEY = 'method_workclock_v1';
-const EMPTY = () => ({active:null,days:{},target:35,cat:'coaching'});
+const EMPTY = () => ({active:null,days:{},target:35,cat:'coaching',plans:{}});
 const CATS={coaching:'Coaching',method:'METHOD.'};
 let USER = null, saveTimer = null;
 
@@ -246,7 +300,7 @@ const store = {
     if(!data){ // first login: push whatever's local up
       const l=this.local(); await this.push(l); return l;
     }
-    const d = Object.assign(EMPTY(), data.data);
+    const d = Object.assign(EMPTY(), data.data); d.plans ||= {};
     localStorage.setItem(KEY, JSON.stringify(d));
     return d;
   },
@@ -309,6 +363,10 @@ const liveExtra = (k,c) => (S.active && k===dkey(new Date(S.active.lapStart)) &&
 const sumDays = (keys,c) => keys.reduce((a,k)=>a+dayTotal(k,c)+liveExtra(k,c),0);
 const splitHTML = keys => `<span class="dot coaching"></span><b>${hm(sumDays(keys,'coaching'))}</b> &nbsp; <span class="dot method"></span><b>${hm(sumDays(keys,'method'))}</b>`;
 const weekKeys = ws => Array.from({length:7},(_,i)=>dkey(addDays(ws,i)));
+const planFor = k => (S.plans||={})[k] ||= {c:0,m:0,tasks:[]};
+const planGet = k => (S.plans&&S.plans[k]) || {c:0,m:0,tasks:[]};
+const planMs = (k,cat) => { const p=planGet(k); return ((cat==='coaching'||!cat)?(+p.c||0):0)*3600e3 + ((cat==='method'||!cat)?(+p.m||0):0)*3600e3; };
+const fmtH = h => h ? (Number.isInteger(h)?h:h.toFixed(1))+'h' : '';
 const DOW = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const MON = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
@@ -411,12 +469,15 @@ function renderWeek(){
   const vals=[];
   for(let i=0;i<7;i++){ const k=dkey(addDays(weekStart,i)); const v=dayTotal(k)+liveExtra(k); vals.push([k,v,dayTotal(k,'coaching')+liveExtra(k,'coaching')]); total+=v; max=Math.max(max,v); }
   const targetMs=(S.target||0)*3600000/5; // per working day for bar scale
-  const scale=Math.max(max, targetMs||0);
+  const maxPlan=Math.max(0,...vals.map(([k])=>planMs(k)));
+  const scale=Math.max(max, targetMs||0, maxPlan);
   vals.forEach(([k,v,vc],i)=>{
     const d=document.createElement('div');
     d.className='day'+(k===today?' today':'')+(k===viewDay?' sel':'');
     const wc=Math.min(100,vc/scale*100), wm=Math.min(100-wc,(v-vc)/scale*100);
-    d.innerHTML=`<div class="d">${DOW[i]} ${fromKey(k).getDate()}</div><div class="h">${hm(v)}</div><div class="bar"><i class="c" style="width:${wc}%"></i><i class="m" style="left:${wc}%;width:${wm}%"></i></div>`;
+    const pm=planMs(k), pl=pm?`<div class="plan">plan ${hm(pm)}</div>`:'';
+    const tick=pm?`<span class="tgt" style="left:${Math.min(100,pm/scale*100)}%"></span>`:'';
+    d.innerHTML=`<div class="d">${DOW[i]} ${fromKey(k).getDate()}</div><div class="h">${hm(v)}</div><div class="bar"><i class="c" style="width:${wc}%"></i><i class="m" style="left:${wc}%;width:${wm}%"></i>${tick}</div>${pl}`;
     d.addEventListener('click',()=>{ viewDay=k; render(); });
     el.appendChild(d);
   });
@@ -448,6 +509,62 @@ function renderMonth(){
   document.getElementById('spMo').innerHTML=splitHTML(Array.from({length:dim},(_,i)=>dkey(new Date(y,m,i+1))));
 }
 
+/* ---------- planner ---------- */
+let planWeek = mondayOf(new Date());
+function openPlan(ws){ planWeek=ws||weekStart; document.getElementById('overlay').classList.add('open'); renderPlan(); }
+function closePlan(){ document.getElementById('overlay').classList.remove('open'); render(); }
+function renderPlan(){
+  const keys=weekKeys(planWeek), today=dkey(new Date()), we=addDays(planWeek,6);
+  document.getElementById('plTitle').textContent=`${planWeek.getDate()} ${MON[planWeek.getMonth()].slice(0,3)} – ${we.getDate()} ${MON[we.getMonth()].slice(0,3)} ${we.getFullYear()}`;
+  const el=document.getElementById('pdays'); el.innerHTML='';
+  let tDone=0,tAll=0;
+  keys.forEach((k,i)=>{
+    const p=planGet(k); const act=dayTotal(k)+liveExtra(k);
+    const row=document.createElement('div'); row.className='pday'+(k===today?' today':'');
+    row.innerHTML=`
+      <div class="lbl">${DOW[i]} ${fromKey(k).getDate()}<small>logged ${hm(act)}${planMs(k)?` / ${hm(planMs(k))}`:''}</small></div>
+      <div class="hrs">
+        <div><label><span class="dot coaching"></span>Coaching</label><input type="number" min="0" step="0.5" data-f="c" value="${p.c||''}" placeholder="0"></div>
+        <div><label><span class="dot method"></span>METHOD.</label><input type="number" min="0" step="0.5" data-f="m" value="${p.m||''}" placeholder="0"></div>
+      </div>
+      <div class="tasks"></div>`;
+    row.querySelectorAll('.hrs input').forEach(inp=>inp.addEventListener('change',()=>{ planFor(k)[inp.dataset.f]=parseFloat(inp.value)||0; persist(); renderPlan(); }));
+    const tl=row.querySelector('.tasks');
+    (p.tasks||[]).forEach((t,ti)=>{
+      tAll++; if(t.done) tDone++;
+      const tr=document.createElement('div'); tr.className='task'+(t.done?' done':'');
+      tr.innerHTML=`<input type="checkbox" ${t.done?'checked':''}><button class="tag ${t.cat||'coaching'}">${CATS[t.cat||'coaching']}</button><input type="text" value="${(t.t||'').replace(/"/g,'&quot;')}"><button class="del" title="Delete">×</button>`;
+      tr.querySelector('[type=checkbox]').addEventListener('change',e=>{ t.done=e.target.checked; persist(); renderPlan(); });
+      tr.querySelector('.tag').addEventListener('click',()=>{ t.cat=(t.cat||'coaching')==='coaching'?'method':'coaching'; persist(); renderPlan(); });
+      tr.querySelector('[type=text]').addEventListener('change',e=>{ t.t=e.target.value; persist(); });
+      tr.querySelector('.del').addEventListener('click',()=>{ planFor(k).tasks.splice(ti,1); persist(); renderPlan(); });
+      tl.appendChild(tr);
+    });
+    const add=document.createElement('div'); add.className='addtask';
+    add.innerHTML=`<button class="tag ${S.cat||'coaching'}" title="Category for new task">${CATS[S.cat||'coaching']}</button><input type="text" placeholder="Add a task…">`;
+    let addCat=S.cat||'coaching';
+    add.querySelector('.tag').addEventListener('click',e=>{ addCat=addCat==='coaching'?'method':'coaching'; e.target.className='tag '+addCat; e.target.textContent=CATS[addCat]; });
+    add.querySelector('input').addEventListener('keydown',e=>{ if(e.key==='Enter' && e.target.value.trim()){ planFor(k).tasks.push({t:e.target.value.trim(),cat:addCat,done:false}); persist(); renderPlan(); } });
+    tl.appendChild(add);
+    el.appendChild(row);
+  });
+  const pc=keys.reduce((a,k)=>a+planMs(k,'coaching'),0), pmm=keys.reduce((a,k)=>a+planMs(k,'method'),0);
+  document.getElementById('plPlanned').textContent=hm(pc+pmm);
+  document.getElementById('plPlannedSplit').innerHTML=`<span class="dot coaching"></span><b>${hm(pc)}</b> &nbsp; <span class="dot method"></span><b>${hm(pmm)}</b>`;
+  document.getElementById('plActual').textContent=hm(sumDays(keys));
+  document.getElementById('plActualSplit').innerHTML=splitHTML(keys);
+  document.getElementById('plTasks').textContent=`${tDone} / ${tAll}`;
+}
+document.getElementById('btnPlan').onclick=()=>openPlan(weekStart);
+document.getElementById('plClose').onclick=closePlan;
+document.getElementById('overlay').addEventListener('click',e=>{ if(e.target.id==='overlay') closePlan(); });
+document.getElementById('plPrev').onclick=()=>{ planWeek=addDays(planWeek,-7); renderPlan(); };
+document.getElementById('plNext').onclick=()=>{ planWeek=addDays(planWeek,7); renderPlan(); };
+document.getElementById('plCopy').onclick=()=>{
+  weekKeys(planWeek).forEach((k,i)=>{ const src=planGet(dkey(addDays(planWeek,i-7))); const d=planFor(k); d.c=src.c||0; d.m=src.m||0; });
+  persist(); renderPlan();
+};
+
 /* ---------- wiring ---------- */
 document.querySelectorAll('.cat').forEach(b=>b.onclick=()=>setCat(b.dataset.cat));
 document.getElementById('btnStart').onclick=start;
@@ -473,8 +590,9 @@ document.getElementById('fileImport').addEventListener('change',e=>{
 
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT') return;
+  if(document.getElementById('overlay').classList.contains('open') && e.key!=='Escape') return;
   if(e.code==='Space'){ e.preventDefault(); S.active?lap():start(); }
-  if(e.key==='Escape') stop();
+  if(e.key==='Escape'){ if(document.getElementById('overlay').classList.contains('open')) closePlan(); else stop(); }
   if(e.key==='1') setCat('coaching');
   if(e.key==='2') setCat('method');
 });
