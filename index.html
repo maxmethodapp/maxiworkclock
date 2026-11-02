@@ -221,7 +221,7 @@
     <div class="week" id="week"></div>
     <div class="foot">
       <div class="eyebrow">Week total <span id="wkTotal" style="color:var(--ink)">0:00</span><div class="split" id="spWk"></div></div>
-      <div class="target">Target <input type="number" id="target" min="0" step="0.5"> h/wk</div>
+      <div class="target">Planned <span id="wkPlanned" style="color:var(--ink)">0:00</span></div>
       <button class="small primary" id="btnPlan">Plan week</button>
     </div>
   </section>
@@ -440,7 +440,6 @@ function render(){
   document.getElementById('sWeek').textContent=hm(sumDays(wk));
   document.getElementById('spWeek').innerHTML=splitHTML(wk);
 
-  if(document.activeElement!==tgt) tgt.value = S.target ?? 35;
   renderLaps(); renderWeek(); renderMonth();
 }
 
@@ -468,9 +467,8 @@ function renderWeek(){
   const today=dkey(new Date()); let total=0, max=1;
   const vals=[];
   for(let i=0;i<7;i++){ const k=dkey(addDays(weekStart,i)); const v=dayTotal(k)+liveExtra(k); vals.push([k,v,dayTotal(k,'coaching')+liveExtra(k,'coaching')]); total+=v; max=Math.max(max,v); }
-  const targetMs=(S.target||0)*3600000/5; // per working day for bar scale
   const maxPlan=Math.max(0,...vals.map(([k])=>planMs(k)));
-  const scale=Math.max(max, targetMs||0, maxPlan);
+  const scale=Math.max(max, maxPlan);
   vals.forEach(([k,v,vc],i)=>{
     const d=document.createElement('div');
     d.className='day'+(k===today?' today':'')+(k===viewDay?' sel':'');
@@ -485,7 +483,9 @@ function renderWeek(){
   document.getElementById('wkLbl').textContent=`${weekStart.getDate()} ${MON[weekStart.getMonth()].slice(0,3)} – ${we.getDate()} ${MON[we.getMonth()].slice(0,3)} ${we.getFullYear()}`;
   const t=document.getElementById('wkTotal'); t.textContent=hm(total);
   document.getElementById('spWk').innerHTML=splitHTML(weekKeys(weekStart));
-  t.style.color = (S.target && total>=S.target*3600000) ? 'var(--deep)' : 'var(--ink)';
+  const plannedWk = weekKeys(weekStart).reduce((a,k)=>a+planMs(k),0);
+  document.getElementById('wkPlanned').textContent=hm(plannedWk);
+  t.style.color = (plannedWk && total>=plannedWk) ? 'var(--deep)' : 'var(--ink)';
 }
 
 function renderMonth(){
@@ -575,8 +575,6 @@ document.getElementById('wkPrev').onclick=()=>{ weekStart=addDays(weekStart,-7);
 document.getElementById('wkNext').onclick=()=>{ weekStart=addDays(weekStart,7); render(); };
 document.getElementById('moPrev').onclick=()=>{ monthView=new Date(monthView.getFullYear(),monthView.getMonth()-1,1); render(); };
 document.getElementById('moNext').onclick=()=>{ monthView=new Date(monthView.getFullYear(),monthView.getMonth()+1,1); render(); };
-const tgt=document.getElementById('target');
-tgt.addEventListener('change',()=>{ S.target=parseFloat(tgt.value)||0; persist(); render(); });
 
 document.getElementById('btnExport').onclick=()=>{
   const b=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
