@@ -286,23 +286,49 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: KEEP, autoRefreshToken: true, detectSessionInUrl: true, storage: KEEP ? localStorage : sessionStorage }
 });
 // Re-check the session whenever the tab comes back into view so a stale token gets refreshed instead of bouncing you to login
-document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible' && USER) sb.auth.getSession(); });
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible' && USER){ sb.auth.getSession(); store.refresh(); } });
+window.addEventListener('focus', ()=>{ if(USER) store.refresh(); });
+window.addEventListener('online', ()=>{ if(USER) store.refresh(); });
 const KEY = 'method_workclock_v1';
 const EMPTY = () => ({active:null,days:{},target:35,cat:'coaching',plans:{}});
 const CATS={coaching:'Coaching',method:'METHOD.'};
-let USER = null, saveTimer = null;
+let USER = null, saveTimer = null, REV = null;  // REV = server updated_at we last saw/wrote
 
 const store = {
   local(){ try{ return JSON.parse(localStorage.getItem(KEY)) || EMPTY(); }catch(e){ return EMPTY(); } },
   async load(){
-    const { data, error } = await sb.from('workclock').select('data').eq('user_id', USER.id).maybeSingle();
+    const { data, error } = await sb.from('workclock').select('data,updated_at').eq('user_id', USER.id).maybeSingle();
     if(error){ setSync('offline · using local', true); return this.local(); }
     if(!data){ // first login: push whatever's local up
       const l=this.local(); await this.push(l); return l;
     }
+    REV = data.updated_at;
     const d = Object.assign(EMPTY(), data.data); d.plans ||= {};
     localStorage.setItem(KEY, JSON.stringify(d));
     return d;
+  },
+  // pull fresh copy; apply only if server is newer than what we have and we have nothing unsaved
+  async refresh(){
+    if(!USER || saveTimer) return;
+    const { data, error } = await sb.from('workclock').select('data,updated_at').eq('user_id', USER.id).maybeSingle();
+    if(error || !data) return;
+    this.apply(data);
+  },
+  apply(row){
+    if(!row || !row.updated_at || (REV && row.updated_at <= REV)) return;
+    if(saveTimer) return;                      // local change in flight wins; it will push shortly
+    REV = row.updated_at;
+    S = Object.assign(EMPTY(), row.data); S.plans ||= {};
+    localStorage.setItem(KEY, JSON.stringify(S));
+    setSync('synced');
+    render();
+    if(document.getElementById('overlay').classList.contains('open')) renderPlan();
+  },
+  subscribe(){
+    sb.channel('workclock-'+USER.id)
+      .on('postgres_changes', { event:'*', schema:'public', table:'workclock', filter:`user_id=eq.${USER.id}` },
+          payload => this.apply(payload.new))
+      .subscribe(status => { if(status==='CHANNEL_ERROR' || status==='TIMED_OUT') setSync('live sync off', true); });
   },
   save(d){
     localStorage.setItem(KEY, JSON.stringify(d));
@@ -311,7 +337,10 @@ const store = {
     saveTimer = setTimeout(()=>this.push(d), 800);
   },
   async push(d){
-    const { error } = await sb.from('workclock').upsert({ user_id: USER.id, data: d, updated_at: new Date().toISOString() });
+    saveTimer = null;
+    const updated_at = new Date().toISOString();
+    const { error } = await sb.from('workclock').upsert({ user_id: USER.id, data: d, updated_at });
+    if(!error) REV = updated_at;
     setSync(error ? 'sync failed' : 'synced', !!error);
     if(error) console.error(error);
   }
@@ -341,13 +370,25 @@ sb.auth.onAuthStateChange(async (_evt, session)=>{
     document.getElementById('login').style.display='none';
     document.getElementById('app').style.display='block';
     render();
+    store.subscribe();
+    setInterval(()=>store.refresh(), 30000);
   } else {
     USER=null;
     document.getElementById('login').style.display='flex';
     document.getElementById('app').style.display='none';
   }
 });
-window.addEventListener('beforeunload',()=>{ if(saveTimer){ clearTimeout(saveTimer); store.push(S); } });
+window.addEventListener('pagehide',()=>{
+  if(!saveTimer || !USER) return;
+  clearTimeout(saveTimer); saveTimer=null;
+  const updated_at=new Date().toISOString();
+  sb.auth.getSession().then(({data})=>{
+    const tok=data?.session?.access_token; if(!tok) return;
+    fetch(`${SUPABASE_URL}/rest/v1/workclock?on_conflict=user_id`,{method:'POST',keepalive:true,
+      headers:{apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+tok,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates'},
+      body:JSON.stringify({user_id:USER.id,data:S,updated_at})});
+  });
+});
 
 /* ---------- helpers ---------- */
 const pad = n => String(n).padStart(2,'0');
