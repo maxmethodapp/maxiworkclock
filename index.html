@@ -56,6 +56,12 @@
   .del{border:none;background:none;color:var(--slate);padding:0 4px;font-size:16px;line-height:1;border-radius:0}
   .del:hover{color:var(--coral)}
   .empty{color:var(--slate);font-size:13px;padding:14px 0}
+  td input.t{font-family:var(--mono);font-size:12px;width:62px;border:none;border-bottom:1px dashed transparent;background:transparent;color:var(--ink);padding:2px 0;outline:none}
+  td input.t:focus{border-bottom-color:var(--mint)}
+  td input.t.bad{color:var(--coral)}
+  .addblk{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate)}
+  .addblk input.t{font-family:var(--mono);font-size:12px;width:62px;border:1px solid var(--rule);background:transparent;color:var(--ink);padding:5px 6px;outline:none}
+  .addblk input.t:focus{border-color:var(--mint)}
 
   .week{display:grid;grid-template-columns:repeat(7,1fr);gap:0;border-left:1px solid var(--rule);border-top:1px solid var(--rule)}
   .day{border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:10px 6px;text-align:center;cursor:pointer}
@@ -209,6 +215,14 @@
       <tbody id="lapRows"></tbody>
     </table>
     <div class="empty" id="lapEmpty">No blocks logged yet.</div>
+    <div class="addblk">
+      <span>Add</span>
+      <button class="tag coaching" id="abCat">Coaching</button>
+      <input class="t" id="abStart" placeholder="09:00" maxlength="5">
+      <span>→</span>
+      <input class="t" id="abEnd" placeholder="10:30" maxlength="5">
+      <button class="small ghost" id="abGo">Add block</button>
+    </div>
   </section>
 
   <!-- WEEK -->
@@ -407,6 +421,8 @@ const weekKeys = ws => Array.from({length:7},(_,i)=>dkey(addDays(ws,i)));
 const planFor = k => (S.plans||={})[k] ||= {c:0,m:0,tasks:[]};
 const planGet = k => (S.plans&&S.plans[k]) || {c:0,m:0,tasks:[]};
 const planMs = (k,cat) => { const p=planGet(k); return ((cat==='coaching'||!cat)?(+p.c||0):0)*3600e3 + ((cat==='method'||!cat)?(+p.m||0):0)*3600e3; };
+const parseTm = (k, str) => { const m=/^(\d{1,2}):?(\d{2})$/.exec((str||'').trim()); if(!m) return null; const h=+m[1], mi=+m[2]; if(h>23||mi>59) return null; const d=fromKey(k); d.setHours(h,mi,0,0); return d.getTime(); };
+const sortDay = k => { if(S.days[k]) S.days[k].sort((a,b)=>a.start-b.start); };
 const fmtH = h => h ? (Number.isInteger(h)?h:h.toFixed(1))+'h' : '';
 const DOW = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const MON = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -495,8 +511,14 @@ function renderLaps(){
   laps.forEach((l,i)=>{
     const tr=document.createElement('tr');
     const c=l.cat||'coaching';
-    tr.innerHTML=`<td class="mono">${i+1}</td><td><button class="tag ${c}" title="Click to switch">${CATS[c]}</button></td><td class="mono">${tm(l.start)}</td><td class="mono">${tm(l.end)}</td><td class="mono r">${hm(l.end-l.start)}</td><td><input placeholder="—" value="${(l.note||'').replace(/"/g,'&quot;')}"></td><td><button class="del" title="Delete">×</button></td>`;
-    tr.querySelector('input').addEventListener('change',e=>{ l.note=e.target.value; persist(); });
+    tr.innerHTML=`<td class="mono">${i+1}</td><td><button class="tag ${c}" title="Click to switch">${CATS[c]}</button></td><td><input class="t" data-f="start" value="${tm(l.start)}" maxlength="5"></td><td><input class="t" data-f="end" value="${tm(l.end)}" maxlength="5"></td><td class="mono r">${hm(l.end-l.start)}</td><td><input placeholder="—" value="${(l.note||'').replace(/"/g,'&quot;')}"></td><td><button class="del" title="Delete">×</button></td>`;
+    tr.querySelector('input:not(.t)').addEventListener('change',e=>{ l.note=e.target.value; persist(); });
+    tr.querySelectorAll('input.t').forEach(inp=>inp.addEventListener('change',e=>{
+      const v=parseTm(viewDay, e.target.value);
+      const ns = inp.dataset.f==='start' ? v : l.start, ne = inp.dataset.f==='end' ? v : l.end;
+      if(v===null || ne<=ns){ e.target.classList.add('bad'); return; }
+      e.target.classList.remove('bad'); l.start=ns; l.end=ne; sortDay(viewDay); persist(); render();
+    }));
     tr.querySelector('.tag').addEventListener('click',()=>{ l.cat = c==='coaching'?'method':'coaching'; persist(); render(); });
     tr.querySelector('.del').addEventListener('click',()=>{ if(confirm('Delete this block?')) deleteLap(viewDay,i); });
     rows.appendChild(tr);
@@ -608,6 +630,17 @@ document.getElementById('plCopy').onclick=()=>{
 
 /* ---------- wiring ---------- */
 document.querySelectorAll('.cat').forEach(b=>b.onclick=()=>setCat(b.dataset.cat));
+let abCat='coaching';
+document.getElementById('abCat').onclick=e=>{ abCat=abCat==='coaching'?'method':'coaching'; e.target.className='tag '+abCat; e.target.textContent=CATS[abCat]; };
+document.getElementById('abGo').onclick=()=>{
+  const a=document.getElementById('abStart'), b=document.getElementById('abEnd');
+  const st=parseTm(viewDay,a.value), en=parseTm(viewDay,b.value);
+  a.classList.toggle('bad',st===null); b.classList.toggle('bad',en===null||(st!==null&&en<=st));
+  if(st===null||en===null||en<=st) return;
+  (S.days[viewDay] ||= []).push({start:st,end:en,note:'',cat:abCat}); sortDay(viewDay);
+  a.value=''; b.value=''; persist(); render();
+};
+document.getElementById('abEnd').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('abGo').click(); });
 document.getElementById('btnStart').onclick=start;
 document.getElementById('btnLap').onclick=lap;
 document.getElementById('btnStop').onclick=stop;
